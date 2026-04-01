@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Benner Terminal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="titlebar">
+      <span class="title">BENNER TERMINAL</span>
+      <button id="close-btn">✕</button>
+    </div>
+    <div id="tabs">
+      <button class="tab active" data-tab="news">NEWS</button>
+      <button class="tab" data-tab="portfolio">PORTFOLIO</button>
+      <button class="tab" data-tab="chat">AI ADVISOR</button>
+    </div>
+    <div id="content">
+
+      <!-- NEWS TAB -->
+      <div id="tab-news" class="tab-content active">
+        <div class="tab-toolbar">
+          <span class="toolbar-label">MARKET NEWS</span>
+          <button id="refresh-news">↺ REFRESH</button>
+        </div>
+        <div id="news-list"><div class="loading">Fetching market news…</div></div>
+      </div>
+
+      <!-- PORTFOLIO TAB -->
+      <div id="tab-portfolio" class="tab-content">
+        <div class="add-form">
+          <input id="ticker" type="text" placeholder="TICKER" maxlength="10" />
+          <input id="shares" type="number" placeholder="SHARES" min="0" step="0.001" />
+          <input id="cost" type="number" placeholder="AVG COST" min="0" step="0.01" />
+          <button id="add-position">ADD</button>
+        </div>
+        <div id="portfolio-summary">
+          <div class="sum-item">
+            <span class="sum-label">TOTAL VALUE</span>
+            <span class="sum-value" id="total-value">—</span>
+          </div>
+          <div class="sum-item">
+            <span class="sum-label">TOTAL P&amp;L</span>
+            <span class="sum-value" id="total-pnl">—</span>
+          </div>
+        </div>
+        <div id="positions-list"></div>
+      </div>
+
+      <!-- CHAT TAB -->
+      <div id="tab-chat" class="tab-content">
+        <div id="chat-messages">
+          <div class="chat-intro">Ask me about stocks, market trends, or investment strategy.</div>
+        </div>
+        <div id="chat-footer">
+          <textarea id="chat-input" placeholder="Ask the AI advisor…" rows="2"></textarea>
+          <button id="send-btn">SEND</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>

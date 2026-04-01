@@ -1,0 +1,29 @@
+appId: com.benner.terminal
+productName: Benner Terminal
+
+directories:
+  output: dist
+  buildResources: assets
+
+files:
+  - main.js
+  - preload.js
+  - renderer/**
+  - package.json
+
+mac:
+  category: public.app-category.finance
+  darkModeSupport: true
+  identity: null
+  gatekeeperAssess: false
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+
+dmg:
+  title: Benner Terminal
+  window:
+    width: 540
+    height: 380

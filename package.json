@@ -1,0 +1,17 @@
+{
+  "name": "benner-terminal",
+  "version": "1.0.0",
+  "description": "Benner Terminal – macOS menubar investment tool",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}
