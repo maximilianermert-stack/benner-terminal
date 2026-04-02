@@ -114,9 +114,10 @@ function createTrayIcon() {
 function createWindow() {
   win = new BrowserWindow({
     width: 420,
-    height: 620,
+    height: 680,
     frame: false,
     resizable: false,
+    alwaysOnTop: false,
     backgroundColor: '#0d0f12',
     show: false,
     webPreferences: {
@@ -282,7 +283,7 @@ ipcMain.handle('chat', async (_event, messagesArg) => {
       {
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
-        system: "You are Benner Terminal's AI investment advisor. Provide concise, insightful analysis. Use clear structure with brief bullet points when helpful.",
+        system: "You are Benner Terminal's AI investment advisor. It is 2026. Context: Samuel Benner's commodity cycle (1875) identifies recurring economic patterns. In the modern interpretation, 2026 corresponds to a late bull market phase — characterized by elevated valuations and speculative excess in AI/tech following the 2020–2024 run. Benner's cycle historically signals a major peak around 2026–2027, with the projected next low circa 2028–2030. Key 2026 implications: (1) Hard assets (gold, commodities) historically outperform late-cycle; (2) High-multiple tech faces mean reversion risk; (3) Defensive value and bonds may see inflows as the cycle turns; (4) Crypto often peaks concurrent with equity tops. Provide concise, actionable investment analysis. Always note risk level and time horizon. Use brief bullet points.",
         messages: messagesArg,
       }
     );
@@ -290,6 +291,13 @@ ipcMain.handle('chat', async (_event, messagesArg) => {
   } catch (e) {
     return { error: e.message };
   }
+});
+
+ipcMain.handle('toggle-always-on-top', () => {
+  if (!win) return false;
+  const next = !win.isAlwaysOnTop();
+  win.setAlwaysOnTop(next, 'floating');
+  return next;
 });
 
 // ---------------------------------------------------------------------------

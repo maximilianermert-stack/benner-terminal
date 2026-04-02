@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('api', {
   getPortfolio: () => ipcRenderer.invoke('get-portfolio'),
   savePortfolio: (data) => ipcRenderer.invoke('save-portfolio', data),
   chat: (messages) => ipcRenderer.invoke('chat', messages),
+  toggleAlwaysOnTop: () => ipcRenderer.invoke('toggle-always-on-top'),
   closeWindow: () => ipcRenderer.send('close-window'),
   openExternal: (url) => ipcRenderer.send('open-external', url),
 });

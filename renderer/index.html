@@ -6,60 +6,68 @@
   <title>Benner Terminal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="app">
+
+    <!-- Titlebar / drag handle -->
     <div id="titlebar">
-      <span class="title">BENNER TERMINAL</span>
-      <button id="close-btn">✕</button>
+      <span class="wordmark">BENNER TERMINAL</span>
+      <div class="titlebar-actions">
+        <button id="pin-btn" class="titlebar-btn" title="Toggle always on top">TOP</button>
+        <button id="close-btn" class="titlebar-btn close-btn">✕</button>
+      </div>
     </div>
+
+    <!-- Live ticker bar -->
+    <div id="ticker-bar">
+      <div id="ticker-track">
+        <span class="tick-loading">Loading quotes…</span>
+      </div>
+    </div>
+
+    <!-- Tabs -->
     <div id="tabs">
       <button class="tab active" data-tab="news">NEWS</button>
-      <button class="tab" data-tab="portfolio">PORTFOLIO</button>
-      <button class="tab" data-tab="chat">AI ADVISOR</button>
+      <button class="tab" data-tab="picks">PICKS</button>
+      <button class="tab" data-tab="chat">AI CHAT</button>
     </div>
+
+    <!-- Content -->
     <div id="content">
 
       <!-- NEWS TAB -->
       <div id="tab-news" class="tab-content active">
-        <div class="tab-toolbar">
-          <span class="toolbar-label">MARKET NEWS</span>
-          <button id="refresh-news">↺ REFRESH</button>
+        <div id="news-list">
+          <div class="state-msg">Fetching market news…</div>
         </div>
-        <div id="news-list"><div class="loading">Fetching market news…</div></div>
+        <button id="refresh-news" class="fab-refresh" title="Refresh news">↺</button>
       </div>
 
-      <!-- PORTFOLIO TAB -->
-      <div id="tab-portfolio" class="tab-content">
-        <div class="add-form">
-          <input id="ticker" type="text" placeholder="TICKER" maxlength="10" />
-          <input id="shares" type="number" placeholder="SHARES" min="0" step="0.001" />
-          <input id="cost" type="number" placeholder="AVG COST" min="0" step="0.01" />
-          <button id="add-position">ADD</button>
+      <!-- PICKS TAB -->
+      <div id="tab-picks" class="tab-content">
+        <div class="picks-header">
+          <span class="picks-label">BENNER CYCLE PICKS · 2026</span>
+          <span class="picks-meta">Late cycle · Peak watch</span>
         </div>
-        <div id="portfolio-summary">
-          <div class="sum-item">
-            <span class="sum-label">TOTAL VALUE</span>
-            <span class="sum-value" id="total-value">—</span>
-          </div>
-          <div class="sum-item">
-            <span class="sum-label">TOTAL P&amp;L</span>
-            <span class="sum-value" id="total-pnl">—</span>
-          </div>
+        <div id="picks-list">
+          <div class="state-msg">Loading picks…</div>
         </div>
-        <div id="positions-list"></div>
       </div>
 
       <!-- CHAT TAB -->
       <div id="tab-chat" class="tab-content">
         <div id="chat-messages">
-          <div class="chat-intro">Ask me about stocks, market trends, or investment strategy.</div>
+          <div class="chat-intro">
+            <span class="chat-intro-label">BENNER TERMINAL AI · 2026</span>
+            Late bull market phase. Ask me about Benner cycle positioning, sector rotation, or specific tickers.
+          </div>
         </div>
         <div id="chat-footer">
-          <textarea id="chat-input" placeholder="Ask the AI advisor…" rows="2"></textarea>
-          <button id="send-btn">SEND</button>
+          <textarea id="chat-input" placeholder="Ask about Benner cycle, positioning…" rows="2"></textarea>
+          <button id="send-btn">↑</button>
         </div>
       </div>
 

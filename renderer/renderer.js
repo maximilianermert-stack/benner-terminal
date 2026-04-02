@@ -1,108 +1,171 @@
 // ============================================================
-// Tab Switching
+// CONFIG
 // ============================================================
-const tabs = document.querySelectorAll('.tab');
-const tabContents = document.querySelectorAll('.tab-content');
+const TICKER_SYMBOLS = ['SPY', 'QQQ', 'AAPL', 'NVDA', 'MSFT', 'BTC-USD', 'GLD', 'TLT'];
 
-tabs.forEach((tab) => {
+const PICKS_DATA = [
+  { symbol: 'GLD',   name: 'SPDR Gold Shares',   target: 330,  risk: 22, benner: 'ACCUMULATE', sector: 'COMMODITY' },
+  { symbol: 'BRK-B', name: 'Berkshire Hathaway', target: 580,  risk: 28, benner: 'HOLD',       sector: 'VALUE' },
+  { symbol: 'MSFT',  name: 'Microsoft Corp',      target: 430,  risk: 44, benner: 'HOLD',       sector: 'TECH' },
+  { symbol: 'AMZN',  name: 'Amazon.com',          target: 240,  risk: 50, benner: 'HOLD',       sector: 'TECH' },
+  { symbol: 'SPY',   name: 'S&P 500 ETF',         target: 530,  risk: 55, benner: 'CAUTION',    sector: 'ETF' },
+  { symbol: 'META',  name: 'Meta Platforms',      target: 640,  risk: 62, benner: 'CAUTION',    sector: 'TECH' },
+  { symbol: 'TLT',   name: '20Y Treasury Bond',   target: 100,  risk: 36, benner: 'WATCH',      sector: 'BONDS' },
+  { symbol: 'NVDA',  name: 'NVIDIA Corp',         target: 100,  risk: 78, benner: 'LATE CYCLE', sector: 'TECH' },
+];
+
+const BENNER_COLORS = {
+  'ACCUMULATE': 'var(--accent2)',
+  'HOLD':       'var(--amber)',
+  'CAUTION':    'var(--amber)',
+  'WATCH':      'var(--muted)',
+  'LATE CYCLE': 'var(--red)',
+};
+
+// ============================================================
+// TABS
+// ============================================================
+document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
-    const targetTab = tab.dataset.tab;
-
-    // Remove active from all tabs and contents
-    tabs.forEach((t) => t.classList.remove('active'));
-    tabContents.forEach((c) => c.classList.remove('active'));
-
-    // Activate clicked tab and matching content
+    const target = tab.dataset.tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     tab.classList.add('active');
-    const targetContent = document.getElementById(`tab-${targetTab}`);
-    if (targetContent) targetContent.classList.add('active');
-
-    // Load data when switching tabs
-    if (targetTab === 'portfolio') {
-      loadPortfolio();
-    }
-    if (targetTab === 'news' && !newsLoaded) {
-      loadNews();
-    }
+    document.getElementById(`tab-${target}`)?.classList.add('active');
+    if (target === 'picks' && !picksLoaded) loadPicks();
+    if (target === 'news' && !newsLoaded) loadNews();
   });
 });
 
 // ============================================================
-// Close Button
+// TITLEBAR
 // ============================================================
-document.getElementById('close-btn').addEventListener('click', () => {
-  window.api.closeWindow();
+document.getElementById('close-btn').addEventListener('click', () => window.api.closeWindow());
+
+let pinActive = false;
+const pinBtn = document.getElementById('pin-btn');
+pinBtn.addEventListener('click', async () => {
+  pinActive = await window.api.toggleAlwaysOnTop();
+  pinBtn.classList.toggle('active', pinActive);
 });
+
+// ============================================================
+// TICKER BAR
+// ============================================================
+let tickerData = {};
+
+function fmtTickerPrice(price) {
+  if (price >= 10000) return '$' + (price / 1000).toFixed(1) + 'K';
+  if (price >= 100)   return '$' + price.toFixed(2);
+  return '$' + price.toFixed(3);
+}
+
+async function refreshTicker() {
+  await Promise.all(TICKER_SYMBOLS.map(async sym => {
+    try {
+      const data = await window.api.fetchQuote(sym);
+      const meta = data?.chart?.result?.[0]?.meta;
+      if (meta) {
+        const price = meta.regularMarketPrice;
+        const prev  = meta.chartPreviousClose ?? meta.previousClose ?? price;
+        tickerData[sym] = { price, change: prev ? ((price - prev) / prev) * 100 : 0 };
+      }
+    } catch {}
+  }));
+  renderTicker();
+}
+
+function renderTicker() {
+  if (!Object.keys(tickerData).length) return;
+  const track = document.getElementById('ticker-track');
+
+  const items = TICKER_SYMBOLS.map(sym => {
+    const d = tickerData[sym];
+    if (!d) return '';
+    const sign  = d.change >= 0 ? '+' : '';
+    const cls   = d.change >= 0 ? 'up' : 'down';
+    const arrow = d.change >= 0 ? '▲' : '▼';
+    return `<span class="tick-item">
+      <span class="tick-sym">${sym}</span>
+      <span class="tick-price ${cls}">${fmtTickerPrice(d.price)}</span>
+      <span class="tick-change ${cls}">${arrow}${sign}${d.change.toFixed(2)}%</span>
+    </span>`;
+  }).join('');
+
+  // Duplicate content for seamless infinite loop
+  track.innerHTML = items + items;
+}
+
+refreshTicker();
+setInterval(refreshTicker, 90000);
 
 // ============================================================
 // NEWS TAB
 // ============================================================
 let newsLoaded = false;
 
-function formatRelativeTime(dateStr) {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
+const BULL_WORDS = ['surge', 'rally', 'gain', 'rise', 'breakout', 'beat', 'record', 'bullish', 'soar', 'jump', 'climbs', 'strong', 'growth', 'bounce'];
+const BEAR_WORDS = ['crash', 'drop', 'fall', 'sell-off', 'recession', 'bear', 'miss', 'plunge', 'slump', 'decline', 'tumble', 'sinks', 'fear', 'warning', 'loss'];
+const HOT_WORDS  = ['breaking', 'alert', 'shock', 'halted', 'suspended', 'spike', 'massive', 'historic', 'emergency', 'just in'];
 
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+function detectTags(title = '', desc = '') {
+  const t = (title + ' ' + desc).toLowerCase();
+  const tags = [];
+  if (BULL_WORDS.some(w => t.includes(w))) tags.push({ label: 'BULL', cls: 'tag-bull' });
+  if (BEAR_WORDS.some(w => t.includes(w))) tags.push({ label: 'BEAR', cls: 'tag-bear' });
+  if (HOT_WORDS.some(w => t.includes(w)))  tags.push({ label: 'HOT',  cls: 'tag-hot' });
+  return tags.slice(0, 2);
+}
+
+function relTime(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  const h = Math.floor(diff / 3600000);
+  const d = Math.floor(diff / 86400000);
+  if (m < 1)  return 'just now';
+  if (m < 60) return `${m}m`;
+  if (h < 24) return `${h}h`;
+  if (d < 7)  return `${d}d`;
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 async function loadNews() {
-  const newsList = document.getElementById('news-list');
-  newsList.innerHTML = '<div class="loading">Fetching market news…</div>';
+  newsLoaded = true;
+  const list = document.getElementById('news-list');
+  list.innerHTML = '<div class="state-msg">Fetching market news…</div>';
 
   const data = await window.api.fetchNews();
-  newsLoaded = true;
 
   if (data.error) {
-    newsList.innerHTML = `<div class="error-msg">Failed to load news: ${data.error}</div>`;
+    list.innerHTML = `<div class="error-msg">${data.error}</div>`;
     return;
   }
 
-  if (!data.articles || data.articles.length === 0) {
-    newsList.innerHTML = '<div class="empty">No articles found.</div>';
+  const articles = (data.articles || []).filter(a => a.title && a.title !== '[Removed]');
+  if (!articles.length) {
+    list.innerHTML = '<div class="state-msg">No articles found.</div>';
     return;
   }
 
-  newsList.innerHTML = '';
+  list.innerHTML = '';
+  articles.forEach(a => {
+    const tags = detectTags(a.title, a.description);
+    const tagsHtml = tags.length
+      ? `<div class="news-tags">${tags.map(t => `<span class="tag ${t.cls}">${t.label}</span>`).join('')}</div>`
+      : '';
 
-  data.articles.forEach((article) => {
-    // Skip removed or null titles
-    if (!article.title || article.title === '[Removed]') return;
-
-    const item = document.createElement('div');
-    item.className = 'news-item';
-
-    const source = document.createElement('span');
-    source.className = 'news-source';
-    source.textContent = article.source?.name || 'Unknown';
-
-    const title = document.createElement('div');
-    title.className = 'news-title';
-    title.textContent = article.title;
-
-    const time = document.createElement('span');
-    time.className = 'news-time';
-    time.textContent = article.publishedAt ? formatRelativeTime(article.publishedAt) : '';
-
-    item.appendChild(source);
-    item.appendChild(title);
-    item.appendChild(time);
-
-    item.addEventListener('click', () => {
-      if (article.url) {
-        window.api.openExternal(article.url);
-      }
-    });
-
-    newsList.appendChild(item);
+    const el = document.createElement('div');
+    el.className = 'news-item';
+    el.innerHTML = `
+      <div class="news-meta">
+        <span class="news-source">${a.source?.name || '—'}</span>
+        <span class="news-time">${a.publishedAt ? relTime(a.publishedAt) : ''}</span>
+      </div>
+      <div class="news-title">${a.title}</div>
+      ${tagsHtml}
+    `;
+    el.addEventListener('click', () => a.url && window.api.openExternal(a.url));
+    list.appendChild(el);
   });
 }
 
@@ -111,247 +174,126 @@ document.getElementById('refresh-news').addEventListener('click', () => {
   loadNews();
 });
 
-// Auto-load news on startup
 loadNews();
 
 // ============================================================
-// PORTFOLIO TAB
+// PICKS TAB
 // ============================================================
-let portfolio = { positions: [] };
-let priceCache = {};
+let picksLoaded = false;
 
-async function fetchPrice(symbol) {
-  const now = Date.now();
-  if (priceCache[symbol] && (now - priceCache[symbol].timestamp) < 60000) {
-    return priceCache[symbol].price;
-  }
-
-  try {
-    const data = await window.api.fetchQuote(symbol);
-    const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
-    if (price !== null) {
-      priceCache[symbol] = { price, timestamp: now };
-    }
-    return price;
-  } catch (e) {
-    return null;
-  }
+function riskColor(r) {
+  if (r <= 33) return 'var(--accent2)';
+  if (r <= 66) return 'var(--amber)';
+  return 'var(--red)';
 }
 
-async function loadPortfolio() {
-  portfolio = await window.api.getPortfolio();
-  if (!portfolio || !portfolio.positions) {
-    portfolio = { positions: [] };
-  }
+async function loadPicks() {
+  picksLoaded = true;
+  const container = document.getElementById('picks-list');
+  container.innerHTML = '<div class="state-msg">Loading picks…</div>';
 
-  // Fetch prices for all positions
-  const fetchPromises = portfolio.positions.map((pos) => fetchPrice(pos.symbol));
-  await Promise.all(fetchPromises);
+  await Promise.all(PICKS_DATA.map(async pick => {
+    try {
+      const data = await window.api.fetchQuote(pick.symbol);
+      const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+      if (price != null) pick.livePrice = price;
+    } catch {}
+  }));
 
-  renderPortfolio();
-}
+  container.innerHTML = '';
 
-function formatCurrency(val) {
-  if (val === null || val === undefined || isNaN(val)) return '—';
-  return '$' + val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-}
+  PICKS_DATA.forEach(pick => {
+    const price  = pick.livePrice ?? null;
+    const upside = price != null ? ((pick.target - price) / price) * 100 : null;
+    const upsign = upside != null && upside >= 0 ? '+' : '';
+    const upcls  = upside == null ? '' : upside >= 0 ? 'up' : 'down';
+    const bc     = BENNER_COLORS[pick.benner] || 'var(--muted)';
 
-function renderPortfolio() {
-  const positionsList = document.getElementById('positions-list');
-  positionsList.innerHTML = '';
-
-  if (!portfolio.positions || portfolio.positions.length === 0) {
-    positionsList.innerHTML = '<div class="empty">No positions yet. Add a ticker above.</div>';
-    document.getElementById('total-value').textContent = '—';
-    document.getElementById('total-pnl').textContent = '—';
-    document.getElementById('total-value').className = 'sum-value';
-    document.getElementById('total-pnl').className = 'sum-value';
-    return;
-  }
-
-  let totalValue = 0;
-  let totalCost = 0;
-
-  portfolio.positions.forEach((pos, index) => {
-    const cached = priceCache[pos.symbol];
-    const currentPrice = cached ? cached.price : null;
-    const shares = parseFloat(pos.shares) || 0;
-    const avgCost = parseFloat(pos.avgCost) || 0;
-    const posValue = currentPrice !== null ? currentPrice * shares : null;
-    const posCost = avgCost * shares;
-    const pnl = posValue !== null ? posValue - posCost : null;
-    const pnlPct = posCost > 0 && pnl !== null ? (pnl / posCost) * 100 : null;
-
-    if (posValue !== null) totalValue += posValue;
-    totalCost += posCost;
-
-    const row = document.createElement('div');
-    row.className = 'position-row';
-
-    const symEl = document.createElement('div');
-    symEl.className = 'pos-symbol';
-    symEl.textContent = pos.symbol;
-
-    const dataEl = document.createElement('div');
-    dataEl.className = 'pos-data';
-    const priceDisplay = currentPrice !== null ? `$${currentPrice.toFixed(2)}` : 'Loading…';
-    dataEl.innerHTML = `${shares} shares @ ${formatCurrency(avgCost)}<br>Current: ${priceDisplay}`;
-
-    const pnlEl = document.createElement('div');
-    pnlEl.className = 'pos-pnl';
-    if (pnl !== null && pnlPct !== null) {
-      const sign = pnl >= 0 ? '+' : '';
-      pnlEl.textContent = `${sign}${formatCurrency(pnl)}\n${sign}${pnlPct.toFixed(2)}%`;
-      pnlEl.classList.add(pnl >= 0 ? 'positive' : 'negative');
-      pnlEl.style.whiteSpace = 'pre';
-    } else {
-      pnlEl.textContent = '—';
-      pnlEl.style.color = 'var(--muted)';
-    }
-
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'pos-remove';
-    removeBtn.textContent = '✕';
-    removeBtn.title = 'Remove position';
-    removeBtn.addEventListener('click', () => {
-      portfolio.positions.splice(index, 1);
-      window.api.savePortfolio(portfolio);
-      renderPortfolio();
-    });
-
-    row.appendChild(symEl);
-    row.appendChild(dataEl);
-    row.appendChild(pnlEl);
-    row.appendChild(removeBtn);
-    positionsList.appendChild(row);
+    const card = document.createElement('div');
+    card.className = 'pick-card';
+    card.innerHTML = `
+      <div class="pick-header">
+        <div class="pick-left">
+          <span class="pick-symbol">${pick.symbol}</span>
+          <span class="pick-sector">${pick.sector}</span>
+        </div>
+        <span class="pick-benner" style="color:${bc};border-color:${bc}44;background:${bc}0e">${pick.benner}</span>
+      </div>
+      <div class="pick-name">${pick.name}</div>
+      <div class="pick-prices">
+        <div class="pick-price-item">
+          <span class="pick-price-label">PRICE</span>
+          <span class="pick-price-val">${price != null ? '$' + price.toFixed(2) : '—'}</span>
+        </div>
+        <div class="pick-price-item">
+          <span class="pick-price-label">TARGET</span>
+          <span class="pick-price-val">$${pick.target.toLocaleString()}</span>
+        </div>
+        <div class="pick-price-item">
+          <span class="pick-price-label">UPSIDE</span>
+          <span class="pick-price-val ${upcls}">${upside != null ? upsign + upside.toFixed(1) + '%' : '—'}</span>
+        </div>
+      </div>
+      <div class="risk-bar-row">
+        <span class="risk-label">RISK</span>
+        <div class="risk-bar-track">
+          <div class="risk-bar-fill" style="width:${pick.risk}%;background:${riskColor(pick.risk)}"></div>
+        </div>
+        <span class="risk-val" style="color:${riskColor(pick.risk)}">${pick.risk}</span>
+      </div>
+    `;
+    container.appendChild(card);
   });
-
-  // Update summary
-  const totalPnl = totalValue - totalCost;
-  const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
-
-  const totalValueEl = document.getElementById('total-value');
-  const totalPnlEl = document.getElementById('total-pnl');
-
-  totalValueEl.textContent = totalValue > 0 ? formatCurrency(totalValue) : '—';
-  totalValueEl.className = 'sum-value';
-
-  if (totalCost > 0) {
-    const sign = totalPnl >= 0 ? '+' : '';
-    totalPnlEl.textContent = `${sign}${formatCurrency(totalPnl)} (${sign}${totalPnlPct.toFixed(2)}%)`;
-    totalPnlEl.className = `sum-value ${totalPnl >= 0 ? 'positive' : 'negative'}`;
-  } else {
-    totalPnlEl.textContent = '—';
-    totalPnlEl.className = 'sum-value';
-  }
 }
-
-document.getElementById('add-position').addEventListener('click', async () => {
-  const tickerInput = document.getElementById('ticker');
-  const sharesInput = document.getElementById('shares');
-  const costInput = document.getElementById('cost');
-
-  const symbol = tickerInput.value.trim().toUpperCase();
-  const shares = parseFloat(sharesInput.value);
-  const avgCost = parseFloat(costInput.value);
-
-  if (!symbol) {
-    tickerInput.focus();
-    return;
-  }
-  if (!shares || shares <= 0) {
-    sharesInput.focus();
-    return;
-  }
-  if (!avgCost || avgCost < 0) {
-    costInput.focus();
-    return;
-  }
-
-  portfolio.positions.push({ symbol, shares, avgCost });
-  await window.api.savePortfolio(portfolio);
-
-  // Fetch price for the new symbol
-  await fetchPrice(symbol);
-  renderPortfolio();
-
-  // Clear inputs
-  tickerInput.value = '';
-  sharesInput.value = '';
-  costInput.value = '';
-  tickerInput.focus();
-});
-
-// Allow pressing Enter in ticker field to move to shares
-document.getElementById('ticker').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    document.getElementById('shares').focus();
-  }
-});
 
 // ============================================================
 // CHAT TAB
 // ============================================================
 let chatHistory = [];
 
-function appendMessage(role, text) {
-  const chatMessages = document.getElementById('chat-messages');
+function appendMsg(role, text, isThinking = false) {
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}${isThinking ? ' msg-thinking' : ''}`;
 
-  const msgDiv = document.createElement('div');
-  msgDiv.className = `msg ${role}`;
-
-  const roleSpan = document.createElement('span');
-  roleSpan.className = 'msg-role';
-  roleSpan.textContent = role === 'user' ? 'YOU' : 'AI ADVISOR';
-
-  const bubble = document.createElement('div');
-  bubble.className = 'msg-bubble';
-  bubble.textContent = text;
-
-  msgDiv.appendChild(roleSpan);
-  msgDiv.appendChild(bubble);
-  chatMessages.appendChild(msgDiv);
-
-  // Scroll to bottom
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-
-  return msgDiv;
+  const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  div.innerHTML = `
+    <span class="msg-role">${role === 'user' ? 'YOU' : 'BENNER AI'}</span>
+    <div class="msg-bubble">${safe}</div>
+  `;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
 }
 
 async function sendMessage() {
-  const input = document.getElementById('chat-input');
+  const input   = document.getElementById('chat-input');
   const sendBtn = document.getElementById('send-btn');
-  const text = input.value.trim();
-
+  const text    = input.value.trim();
   if (!text) return;
 
-  // Clear input and disable button
-  input.value = '';
+  input.value      = '';
   sendBtn.disabled = true;
 
-  // Add user message to history and UI
   chatHistory.push({ role: 'user', content: text });
-  appendMessage('user', text);
+  appendMsg('user', text);
 
-  // Show thinking indicator
-  const thinkingMsg = appendMessage('assistant', 'Analyzing…');
+  const thinking = appendMsg('assistant', '···', true);
 
   try {
-    const response = await window.api.chat(chatHistory);
+    const res = await window.api.chat(chatHistory);
+    thinking.remove();
 
-    // Remove thinking bubble
-    thinkingMsg.remove();
-
-    if (response.error) {
-      appendMessage('assistant', `Error: ${response.error}`);
+    if (res.error) {
+      appendMsg('assistant', 'Error: ' + res.error);
     } else {
-      const replyText = response?.content?.[0]?.text || 'No response received.';
-      chatHistory.push({ role: 'assistant', content: replyText });
-      appendMessage('assistant', replyText);
+      const reply = res?.content?.[0]?.text || 'No response.';
+      chatHistory.push({ role: 'assistant', content: reply });
+      appendMsg('assistant', reply);
     }
   } catch (e) {
-    thinkingMsg.remove();
-    appendMessage('assistant', `Error: ${e.message}`);
+    thinking.remove();
+    appendMsg('assistant', 'Error: ' + e.message);
   }
 
   sendBtn.disabled = false;
@@ -359,8 +301,7 @@ async function sendMessage() {
 }
 
 document.getElementById('send-btn').addEventListener('click', sendMessage);
-
-document.getElementById('chat-input').addEventListener('keydown', (e) => {
+document.getElementById('chat-input').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     sendMessage();
